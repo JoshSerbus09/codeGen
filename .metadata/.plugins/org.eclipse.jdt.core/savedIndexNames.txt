@@ -1,0 +1,1 @@
+INDEX VERSION 1.126+/afs/cs.wisc.edu/u/s/e/serbus/private/cs536/p6/.metadata/.plugins/org.eclipse.jdt.core

@@ -1,0 +1,93 @@
+	bool second(int n, int p) {
+
+		int i;
+		int x;
+		int y;
+		bool w;
+
+		
+
+		// relational operators
+
+		
+		
+		
+		
+		
+
+		// nested relational operators
+		
+		
+		
+		
+		
+		
+
+		return false && true;
+	}
+
+	int main() {
+
+		int x;
+		int y;
+		
+		cin >> y;
+		cout << x;
+
+
+		// arithmetic operators
+		x = 1 + 2;
+		x = 3*5;
+		x = 5/1;
+		x = 10-3;
+
+                // Chainning arithmetic operators
+                x = 1+2+3;
+		x = 1+2 * 3;
+		x = (1+2)*(3-4);
+
+		// if statement
+		if (1 > 0) {
+			y = 3;
+		}
+
+		// if else statement test
+		if (false) {
+			x = 2;
+		} else {
+			x = 4;
+		}
+
+		while (true) {
+			y = 4;
+		}
+
+		main();
+
+		second(x, y);
+
+		return x;
+	}
+
+	int first(int a, int b, int c, int d){
+		return 1;
+	}
+
+	void testArray(){
+                int arr[1000];
+
+		int f;
+		arr[1] = 2;
+		f = arr[1];
+		
+		cin >> arr[1];
+
+		f = arr[3] + arr[5];
+		f = arr[3+4*(5*2)];
+
+		return;
+	}
+
+
+
+
