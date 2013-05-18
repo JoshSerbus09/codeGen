@@ -52,7 +52,7 @@ public class P6 {
         // open output file
         PrintWriter outFile = null;
         try {
-            outFile = new PrintWriter(args[1]);
+            outFile = new PrintWriter(args[1] + ".txt");
         } catch (FileNotFoundException ex) {
             System.err.println("File " + args[1] +
                                " could not be opened for writing.");
@@ -113,10 +113,10 @@ public class P6 {
         
     // Now start code generation
     	 System.out.println("Beginning Code generation.");
-    	 Codegen.initialize("spim_" + args[1]);
+    	 Codegen.initialize("spim_" + args[1] + ".s");
     	 ((ProgramNode)root.value).codeGen();
     	 Codegen.writeFile();
-    	 System.out.println("Code generation complete. Output file: spim_" + args[1]);
+    	 System.out.println("Code generation complete. Output file: spim_" + args[1] + ".s");
         return;
     }
 }
