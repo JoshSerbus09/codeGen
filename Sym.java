@@ -9,6 +9,7 @@ public class Sym {
     public Type type;
     public String mark;
     public int scopeLv = -1;
+    public int offset = 0;
 
     public static int getBase(){
 	base++;

@@ -104,6 +104,7 @@ abstract class ASTnode {
     abstract public void unparse(PrintWriter p, int indent);
     public static boolean foundMain = false;
     public static RegPool pool = null;
+    public static int lastSeenParamsCount = 0;
     public static int currLexLv = 0;
     
     // this method can be used by the unparse methods to do indenting
@@ -164,6 +165,18 @@ class DeclListNode extends ASTnode {
             System.err.println("unexpected NoSuchElementException in DeclListNode.processNames");
             System.exit(-1);
         }
+        
+        for(int i = 0; i < myDecls.size(); i++){
+        	try{
+        		VarDeclNode node = (VarDeclNode)myDecls.get(i);
+        		node.setOffset(-4 * (lastSeenParamsCount + 2 + i ));
+        		
+        	} catch (ClassCastException ce) {
+        		// This means the DeclNode is a FnDeclNode, we don't want to calculate offset for functions
+        	}
+        }
+        
+        
     }
 
     /** typeCheck **/
@@ -473,6 +486,11 @@ class VarDeclNode extends DeclNode {
         }
         p.println(";");
     }
+    
+    public void setOffset(int offset){
+    	Sym sym = myId.sym();
+    	sym.offset = offset;
+    }
 
     // 3 kids
     private TypeNode myType;
@@ -543,6 +561,8 @@ class FnDeclNode extends DeclNode {
         S.addMap();
         List<Type> L = myFormalsList.processNames(S);
         if (sym != null) sym.addFormals(L);
+        
+        lastSeenParamsCount = myFormalsList.length();
         myBody.processNames(S);
         try {
             S.removeMap();
@@ -593,11 +613,6 @@ class FnDeclNode extends DeclNode {
     	
     	// push return address
     	Codegen.genPush("$ra");
-    	
-    	// push access link
-    	//TODO:
-    	System.out.println("ast.java#46465 : finish access link");
-    	System.exit(-1);
     	
     	// back up the old $fp into control link
     	Codegen.genPush("$fp");
@@ -798,7 +813,7 @@ class ReadStmtNode extends StmtNode {
         myExp.unparse(p,0);
         p.println(";");
     }
-
+    
     // 1 kid (actually can only be an IdNode or an ArrayExpNode)
     private ExpNode myExp;
 }
@@ -1209,16 +1224,20 @@ class StringLitNode extends ExpNode {
     }
     
     public void codeGen(){
-    	// Step 1: grab register
+    	// Step 1: Make the String
+    	String label = Codegen.nextLabel();
     	String reg0 = pool.next();
     	
-    	// Step 2: load value into register
+    	Codegen.genText(".data");
+    	Codegen.genLabel(label);
+    	Codegen.genText(".asciiz \"" + myStrVal + "\"");
+    	
+    	// Step 2: Push the address of the String onto the stack
+    	Codegen.genText(".text");
+    	Codegen.generate("la", reg0, label );
+    	Codegen.genPush(reg0);
     	
     	
-    	// Step 3: Push onto stack
-    	
-    	
-    	// Step 4: Release register
     	pool.release(reg0);
     }
 
@@ -1756,8 +1775,8 @@ class PlusNode extends ArithmeticExpNode {
         Codegen.genPush(reg0);
         
         // step 5: release registers
-        ASTnode.pool.release(reg0);
-        ASTnode.pool.release(reg1);
+        pool.release(reg0);
+        pool.release(reg1);
     }
     
     
@@ -1796,8 +1815,8 @@ class MinusNode extends ArithmeticExpNode {
         Codegen.genPush(reg0);
         
         // step 5: release registers
-        ASTnode.pool.release(reg0);
-        ASTnode.pool.release(reg1);
+        pool.release(reg0);
+        pool.release(reg1);
     }
 }
 
@@ -1834,8 +1853,8 @@ class TimesNode extends ArithmeticExpNode {
         Codegen.genPush(reg0);
         
         // step 5: release registers
-        ASTnode.pool.release(reg0);
-        ASTnode.pool.release(reg1);
+        pool.release(reg0);
+        pool.release(reg1);
     }
 }
 
@@ -1872,8 +1891,8 @@ class DivideNode extends ArithmeticExpNode {
         Codegen.genPush(reg0);
         
         // step 5: release registers
-        ASTnode.pool.release(reg0);
-        ASTnode.pool.release(reg1);
+        pool.release(reg0);
+        pool.release(reg1);
     }
     
 }
@@ -1915,8 +1934,8 @@ class AndNode extends LogicalExpNode {
         Codegen.genPush(reg0);
         
         // step 5: release registers 
-        ASTnode.pool.release(reg0);
-        ASTnode.pool.release(reg1);
+        pool.release(reg0);
+        pool.release(reg1);
     }
     
 }
@@ -1954,8 +1973,8 @@ class OrNode extends LogicalExpNode {
         Codegen.genPush(reg0);
         
         // step 5: release registers 
-        ASTnode.pool.release(reg0);
-        ASTnode.pool.release(reg1);
+        pool.release(reg0);
+        pool.release(reg1);
     }
 }
 
