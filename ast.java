@@ -431,6 +431,7 @@ abstract class DeclNode extends ASTnode {
     //       (for non formal decls, the returned value
     //       is simply ignored)
     abstract public Sym processNames(SymbolTable S);
+    abstract public void codeGen();
 
     // default version of typeCheck for var and formal decls
     public void typeCheck() {
@@ -499,6 +500,10 @@ class VarDeclNode extends DeclNode {
     public void setOffset(int offset){
     	Sym sym = myId.sym();
     	sym.offset = offset;
+    }
+    
+    public void codeGen(){
+    	// do nothing
     }
 
     // 3 kids
@@ -735,6 +740,10 @@ class FormalDeclNode extends DeclNode {
         p.print(myId.name());
         //myId.unparse(p, indent);
     }
+    
+    public void codeGen(){
+    	// do nothing
+    }
 
     // 2 kids
     private TypeNode myType;
@@ -801,6 +810,7 @@ class VoidNode extends TypeNode {
 abstract class StmtNode extends ASTnode {
     abstract public void processNames(SymbolTable S);
     abstract public void typeCheck(Type T);
+    abstract public void codeGen();
 }
 
 class ReadStmtNode extends StmtNode {
@@ -830,6 +840,10 @@ class ReadStmtNode extends StmtNode {
         p.print("cin >> ");
         myExp.unparse(p,0);
         p.println(";");
+    }
+    
+    public void codeGen() {
+    	// TODO
     }
     
     // 1 kid (actually can only be an IdNode or an ArrayExpNode)
@@ -863,6 +877,10 @@ class WriteStmtNode extends StmtNode {
         p.print("cout << ");
         myExp.unparse(p,0);
         p.println(";");
+    }
+    
+    public void codeGen() {
+    	// TODO
     }
 
     // 1 kid
@@ -2161,6 +2179,8 @@ class OrNode extends LogicalExpNode {
     }
     
     public void codeGen() {
+    	// TODO short circuit 
+    	
         // step 1: evaluate both operands
         myExp1.codeGen();
         myExp2.codeGen();
@@ -2201,6 +2221,31 @@ class EqualsNode extends EqualityExpNode {
         myExp2.unparse(p, 0);
         p.print(")");
     }
+    
+    public void codeGen(){
+    	String elseLabel = Codegen.nextLabel();
+    	
+    	myExp2.codeGen();
+    	myExp1.codeGen();
+    	
+    	String reg0 = pool.next();
+    	String reg1 = pool.next();
+    	String reg2 = pool.next();
+    	
+    	Codegen.genPop(reg1);
+    	Codegen.genPop(reg2);
+    	
+    	
+    	Codegen.generate("xor",reg0,reg1,reg2);
+    	Codegen.generate("not",reg0,reg0);
+    	
+    	Codegen.genPush(reg0);
+    	
+    	pool.release(reg0);
+    	pool.release(reg1);
+    	pool.release(reg2);
+    }
+    
 }
 
 class NotEqualsNode extends EqualityExpNode {
@@ -2214,6 +2259,29 @@ class NotEqualsNode extends EqualityExpNode {
         p.print(" != ");
         myExp2.unparse(p, 0);
         p.print(")");
+    }
+    
+    public void codeGen(){
+    	String elseLabel = Codegen.nextLabel();
+    	
+    	myExp2.codeGen();
+    	myExp1.codeGen();
+    	
+    	String reg0 = pool.next();
+    	String reg1 = pool.next();
+    	String reg2 = pool.next();
+    	
+    	Codegen.genPop(reg1);
+    	Codegen.genPop(reg2);
+    	
+    	
+    	Codegen.generate("xor",reg0,reg1,reg2);
+    	
+    	Codegen.genPush(reg0);
+    	
+    	pool.release(reg0);
+    	pool.release(reg1);
+    	pool.release(reg2);
     }
 }
 
@@ -2233,6 +2301,32 @@ class LessNode extends RelationalExpNode {
         myExp2.unparse(p, 0);
         p.print(")");
     }
+    
+    public void codeGen(){
+    	String elseLabel = Codegen.nextLabel();
+    	
+    	myExp2.codeGen();
+    	myExp1.codeGen();
+    	
+    	String reg0 = pool.next();
+    	String reg1 = pool.next();
+    	String reg2 = pool.next();
+    	
+    	Codegen.generate("li", reg0, 0);
+    	Codegen.genPop(reg1);
+    	Codegen.genPop(reg2);
+    	
+    	
+    	Codegen.generate("bge",reg1,reg2,elseLabel);
+    	Codegen.generate("addi",reg0,1);
+    	Codegen.genLabel(elseLabel);
+    	
+    	Codegen.genPush(reg0);
+    	
+    	pool.release(reg0);
+    	pool.release(reg1);
+    	pool.release(reg2);
+    }
 }
 
 class GreaterNode extends RelationalExpNode {
@@ -2246,6 +2340,32 @@ class GreaterNode extends RelationalExpNode {
         p.print(" > ");
         myExp2.unparse(p, 0);
         p.print(")");
+    }
+    
+    public void codeGen(){
+    	String elseLabel = Codegen.nextLabel();
+    	
+    	myExp2.codeGen();
+    	myExp1.codeGen();
+    	
+    	String reg0 = pool.next();
+    	String reg1 = pool.next();
+    	String reg2 = pool.next();
+    	
+    	Codegen.generate("li", reg0, 0);
+    	Codegen.genPop(reg1);
+    	Codegen.genPop(reg2);
+    	
+    	
+    	Codegen.generate("ble",reg1,reg2,elseLabel);
+    	Codegen.generate("addi",reg0,1);
+    	Codegen.genLabel(elseLabel);
+    	
+    	Codegen.genPush(reg0);
+    	
+    	pool.release(reg0);
+    	pool.release(reg1);
+    	pool.release(reg2);
     }
 }
 
@@ -2261,6 +2381,33 @@ class LessEqNode extends RelationalExpNode {
         myExp2.unparse(p, 0);
         p.print(")");
     }
+    
+    public void codeGen(){
+    	String elseLabel = Codegen.nextLabel();
+    	
+    	myExp2.codeGen();
+    	myExp1.codeGen();
+    	
+    	String reg0 = pool.next();
+    	String reg1 = pool.next();
+    	String reg2 = pool.next();
+    	
+    	Codegen.generate("li", reg0, 0);
+    	Codegen.genPop(reg1);
+    	Codegen.genPop(reg2);
+    	
+    	
+    	Codegen.generate("bgt",reg1,reg2,elseLabel);
+    	Codegen.generate("addi",reg0,1);
+    	Codegen.genLabel(elseLabel);
+    	
+    	Codegen.genPush(reg0);
+    	
+    	pool.release(reg0);
+    	pool.release(reg1);
+    	pool.release(reg2);
+    }
+    
 }
 
 class GreaterEqNode extends RelationalExpNode {
@@ -2274,5 +2421,31 @@ class GreaterEqNode extends RelationalExpNode {
         p.print(" >= ");
         myExp2.unparse(p, 0);
         p.print(")");
+    }
+    
+    public void codeGen(){
+    	String elseLabel = Codegen.nextLabel();
+    	
+    	myExp2.codeGen();
+    	myExp1.codeGen();
+    	
+    	String reg0 = pool.next();
+    	String reg1 = pool.next();
+    	String reg2 = pool.next();
+    	
+    	Codegen.generate("li", reg0, 0);
+    	Codegen.genPop(reg1);
+    	Codegen.genPop(reg2);
+    	
+    	
+    	Codegen.generate("blt",reg1,reg2,elseLabel);
+    	Codegen.generate("addi",reg0,1);
+    	Codegen.genLabel(elseLabel);
+    	
+    	Codegen.genPush(reg0);
+    	
+    	pool.release(reg0);
+    	pool.release(reg1);
+    	pool.release(reg2);
     }
 }
