@@ -99,13 +99,16 @@ import java.util.*;
 // ASTnode class (base class for all other kinds of nodes)
 // **********************************************************************
 
-abstract class ASTnode { 
+abstract class ASTnode {
+	public static final boolean DEBUG = true;
+	
     // every subclass must provide an unparse operation
     abstract public void unparse(PrintWriter p, int indent);
     public static boolean foundMain = false;
     public static RegPool pool = null;
     public static int lastSeenParamsCount = 0;
     public static int currLexLv = 0;
+    public static String lastSeenFnExit;
     
     // this method can be used by the unparse methods to do indenting
     protected void doIndent(PrintWriter p, int indent) {
@@ -206,6 +209,12 @@ class DeclListNode extends ASTnode {
     /** get number of variables declared **/
     public int count(){
     	return myDecls.size();
+    }
+    
+    public void codeGen(){
+    	for(DeclNode node : myDecls){
+    		node.codeGen();
+    	}
     }
 
     // list of kids (DeclNodes)
@@ -597,7 +606,10 @@ class FnDeclNode extends DeclNode {
     public void codeGen(){
     	int paramsCount = ((FnSym)myId.sym()).numparams();
     	int localsCount = myBody.numLocals();
+    	lastSeenFnExit = Codegen.nextLabel();
     	
+    	
+    	/**************** Function Preamble **************/
     	// Print ".text"
     	Codegen.genText(".text");
     	
@@ -627,6 +639,8 @@ class FnDeclNode extends DeclNode {
     	ASTnode.pool = new RegPool();
     	pool.saveAll();
     	
+    	/**************** Function Body **************/
+    	
     	// Generate code for function body
     	myBody.codeGen();
     	
@@ -635,6 +649,10 @@ class FnDeclNode extends DeclNode {
     		Codegen.genPop("$v0");
     	}
     	
+    	/**************** Function Exit **************/
+    	
+    	
+    	Codegen.genLabel(lastSeenFnExit);
     	// FUNCTION EXIT !!!!!!
     	// load return address
     	Codegen.generateIndexed("lw","$ra","$fp",-4 * paramsCount);
@@ -884,6 +902,36 @@ class AssignStmtNode extends StmtNode {
         myExp.unparse(p,0);
         p.println(";");
     }
+    
+    public void codeGen(){
+    	if(DEBUG){Codegen.genText("# Entering assign");}
+    	
+    	// Right hand side
+    	myExp.codeGen();
+    	
+    	// Left hand side
+    	try{
+    		((IdNode)myLhs).codeGenByRef();
+    	}catch(ClassCastException e){
+    		System.out.println("ast.java#4196857:This shouldn't happen.");
+    		System.exit(-1);
+    	}
+    	
+    	String reg0 = pool.next();
+    	String reg1 = pool.next();
+    	
+    	Codegen.genPop(reg0);// This is the address
+    	Codegen.genPop(reg1);// This is the operand
+    	
+    	// Store the operand into target address
+    	Codegen.generate("sw", reg1, reg0, 0);
+    	Codegen.genPush(reg1);
+    	
+    	pool.release(reg0);
+    	pool.release(reg1);
+    	
+    	if(DEBUG){Codegen.genText("# Leaving assign");}
+    }
 
     // 2 kids
     private ExpNode myLhs;
@@ -934,6 +982,24 @@ class IfStmtNode extends StmtNode {
         if (myStmtList != null) myStmtList.unparse(p,indent+2);
         doIndent(p, indent);
         p.println("}");
+    }
+    
+    public void codeGen(){
+    	String falseLabel = Codegen.nextLabel();
+    	
+    	// Step 1: evaluate the condition
+    	myExp.codeGen();
+    	String reg0 = pool.next();
+    	Codegen.generate("beqz", reg0, falseLabel);
+    	// Step 2: generate for TRUE body code
+    	myDeclList.codeGen();
+    	myStmtList.codeGen();	
+    	
+    	// Step 3: place falseLabel
+    	Codegen.genLabel(falseLabel);
+    	
+    	pool.release(reg0);
+    	
     }
 
     // 3 kids
@@ -1011,6 +1077,33 @@ class IfElseStmtNode extends StmtNode {
         p.println("}");
     }
 
+    public void codeGen(){
+    	String falseLabel = Codegen.nextLabel();
+    	String doneLabel = Codegen.nextLabel();
+    	
+    	// Step 1: evaluate the condition
+    	myExp.codeGen();
+    	String reg0 = pool.next();
+    	Codegen.generate("beqz", reg0, falseLabel);
+    	pool.release(reg0);
+    	
+    	// Step 2: Then portion
+    	myThenDeclList.codeGen();
+    	myThenStmtList.codeGen();
+    	Codegen.generate("b",doneLabel);
+    	
+    	// Step 3: Else portion
+    	Codegen.genLabel(falseLabel);
+    	pool.release(reg0);
+    	myElseDeclList.codeGen();
+    	myElseStmtList.codeGen();
+    	
+    	// Step 3: place falseLabel
+    	Codegen.genLabel(doneLabel);
+
+    }
+    
+    
     // 5 kids
     private ExpNode myExp;
     private DeclListNode myThenDeclList;
@@ -1064,6 +1157,31 @@ class WhileStmtNode extends StmtNode {
         doIndent(p, indent);
         p.println("}");
     }
+    
+    public void codeGen(){
+    	// Step 1: generate repeat label
+    	String repeatLabel = Codegen.nextLabel();
+    	
+    	String reg0 = pool.next();
+    	Codegen.genLabel(repeatLabel);
+    	pool.release(reg0);
+    	
+    	// Step 2: generate code for decl and stmt lists
+    	myDeclList.codeGen();
+    	myStmtList.codeGen();
+    	
+    	// Step 3: evaluate expression
+    	myExp.codeGen();
+    	
+    	// Step 4: pop exp value into register reg0
+    	reg0 = pool.next();
+    	Codegen.genPop(reg0);
+    	
+    	// Step 5: if true, branch to repeatLabel
+    	Codegen.generate("bgtz", reg0, repeatLabel);
+    	pool.release(reg0);
+    	
+    }
 
     // 3 kids
     private ExpNode myExp;
@@ -1091,6 +1209,10 @@ class CallStmtNode extends StmtNode {
         p.println(";");
     }
 
+    public void codeGen(){
+    	myCall.codeGen();
+    }
+    
     // 1 kid
     private CallExpNode myCall;
 }
@@ -1133,6 +1255,17 @@ class ReturnStmtNode extends StmtNode {
         }
         p.println(";");
     }
+    
+    
+    public void codeGen(){
+    	if(myExp != null) {
+    		myExp.codeGen();
+    	}
+    	Codegen.generate("b", lastSeenFnExit);
+    }
+    
+    
+    
 
     // 1 kid
     private ExpNode myExp; // possibly null
@@ -1396,6 +1529,47 @@ class IdNode extends ExpNode {
         return myCharNum;
     }
     
+    public void codeGenByVal(){
+    	
+    	// If it's a global variable
+    	if(currLexLv > mySym.scopeLv){
+    		String reg0 = pool.next();
+    		//Now we have the address pointing to the variable.
+    		Codegen.generate("la","reg0","_" + myStrVal);
+    		//Grab its value.
+    		Codegen.generateIndexed("lw", reg0, reg0, 0);
+    		Codegen.genPush(reg0);
+    		pool.release(reg0);	
+    	}
+    	
+    	// If it's in current scope
+    	String reg0 = pool.next();
+    	Codegen.generate("add",reg0,"$fp",mySym.getOffset());
+    	Codegen.generateIndexed("lw", reg0, reg0, 0);
+    	Codegen.genPush(reg0);
+    	pool.release(reg0);
+    	
+    	
+    }
+    
+    public void codeGenByRef(){
+    	
+    	// If it's a global variable
+    	if(currLexLv > mySym.scopeLv){
+     		String reg0 = pool.next();
+    		Codegen.generate("la","reg0","_" + myStrVal);
+    		Codegen.genPush(reg0);
+    		pool.release(reg0);		
+    	}
+    	
+    	// If it's in current scope
+    	String reg0 = pool.next();
+    	Codegen.generate("add",reg0,"$fp",mySym.getOffset());
+    	Codegen.genPush(reg0);
+    	pool.release(reg0);
+
+    }
+    
     
 
     private int myLineNum;
@@ -1450,6 +1624,10 @@ class ArrayExpNode extends ExpNode {
     public int charnum() {
         return myId.charnum();
     }
+    
+    public void codeGen(){
+    	//TODO
+    }
 
     // 2 kids
     private IdNode myId;
@@ -1471,7 +1649,7 @@ class CallExpNode extends ExpNode {
      *
      * process name of called fn and all actuals
      **/
-    public void processNames(SybusmbolTable S) {
+    public void processNames(SymbolTable S) {
         myId.processNames(S);
         myExpList.processNames(S);
     }
@@ -1520,6 +1698,10 @@ class CallExpNode extends ExpNode {
     /** charnum **/
     public int charnum() {
         return myId.charnum();
+    }
+    
+    public void codeGen(){
+    	// TODO
     }
 
     // 2 kids
@@ -1604,6 +1786,19 @@ class UnaryMinusNode extends UnaryExpNode {
         myExp.unparse(p, 0);
         p.print(")");
     }
+    
+    public void codeGen(){
+    	myExp.codeGen();
+    	
+    	String reg0 = pool.next();
+    	
+    	Codegen.genPop(reg0);
+    	Codegen.generate("mul", reg0, reg0, -1);
+    	Codegen.genPush(reg0);
+    	
+    	pool.release(reg0);
+    	
+    }
 }
 
 class NotNode extends UnaryExpNode {
@@ -1627,6 +1822,18 @@ class NotNode extends UnaryExpNode {
         p.print("(!");
         myExp.unparse(p, 0);
         p.print(")");
+    }
+    
+    public void codeGen(){
+    	myExp.codeGen();
+    	
+    	String reg0 = pool.next();
+    	
+    	Codegen.genPop(reg0);
+    	Codegen.generate("not", reg0, reg0);
+    	Codegen.genPush(reg0);
+    	
+    	pool.release(reg0);
     }
 }
 

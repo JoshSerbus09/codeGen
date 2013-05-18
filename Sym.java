@@ -20,6 +20,10 @@ public class Sym {
     	
     }
     
+    public int getOffset(){
+    	return offset;
+    }
+    
     public Sym(Type type, int level) {
         this.type = type;
         mark = "SYM[" + getBase() + "]";
