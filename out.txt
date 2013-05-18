@@ -1,0 +1,52 @@
+
+bool second(int n, int p) {
+  int i;
+  int x;
+  int y;
+  bool w;
+  return (false && true);
+}
+
+int main() {
+  int x;
+  int y;
+  cin >> y(int);
+  cout << x(int);
+  x(int) = (1 + 2);
+  x(int) = (3 * 5);
+  x(int) = (5 / 1);
+  x(int) = (10 - 3);
+  x(int) = ((1 + 2) + 3);
+  x(int) = (1 + (2 * 3));
+  x(int) = ((1 + 2) * (3 - 4));
+  if ((1 > 0)) {
+    y(int) = 3;
+  }
+  if (false) {
+    x(int) = 2;
+  }
+  else {
+    x(int) = 4;
+  }
+  while (true) {
+    y(int) = 4;
+  }
+  main(->int)();
+  second(int,int->bool)(x(int), y(int));
+  return x(int);
+}
+
+int first(int a, int b, int c, int d) {
+  return 1;
+}
+
+void testArray() {
+  int arr[1000];
+  int f;
+  arr(int[1000])[1] = 2;
+  f(int) = arr(int[1000])[1];
+  cin >> arr(int[1000])[1];
+  f(int) = (arr(int[1000])[3] + arr(int[1000])[5]);
+  f(int) = arr(int[1000])[(3 + (4 * (5 * 2)))];
+  return;
+}

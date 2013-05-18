@@ -144,6 +144,10 @@ class ProgramNode extends ASTnode {
     public void unparse(PrintWriter p, int indent) {
         myDeclList.unparse(p, indent);
     }
+    
+    public void codeGen(){
+    	myDeclList.codeGen();
+    }
 
     // 1 kid
     private DeclListNode myDeclList;
@@ -213,7 +217,9 @@ class DeclListNode extends ASTnode {
     
     public void codeGen(){
     	for(DeclNode node : myDecls){
+    		if(DEBUG){Codegen.genText("# This is one child in DeclList Node#220");}
     		node.codeGen();
+    		if(DEBUG){Codegen.genText("# This is THE END of one child in DeclList Node#220");}
     	}
     }
 
@@ -415,6 +421,12 @@ class ExpListNode extends ASTnode {
             System.exit(-1);
         }
     }
+    
+    public void codeGen(){
+    	for(ExpNode exp: myExps){
+    		exp.codeGen();
+    	}
+    }
 
     // list of kids (ExpNodes)
     private List<ExpNode> myExps;
@@ -609,6 +621,7 @@ class FnDeclNode extends DeclNode {
     
     
     public void codeGen(){
+    	if(DEBUG){Codegen.genText("# <FnDeclNode>");}
     	int paramsCount = ((FnSym)myId.sym()).numparams();
     	int localsCount = myBody.numLocals();
     	lastSeenFnExit = Codegen.nextLabel();
@@ -629,45 +642,62 @@ class FnDeclNode extends DeclNode {
     	}
     	
     	// push return address
+    	if(DEBUG){Codegen.genText("#644 Push return address");}
     	Codegen.genPush("$ra");
     	
     	// back up the old $fp into control link
+    	if(DEBUG){Codegen.genText("#648 back up the old $fp into control link");}
     	Codegen.genPush("$fp");
     	
     	// calculate thew new $fp
+    	if(DEBUG){Codegen.genText("#652 calculate thew new $fp");}
     	Codegen.generate("addu", "$fp", "$sp", 8 + paramsCount*4);
     	
     	// push space for locals
+    	if(DEBUG){Codegen.genText("#656 push space for locals");}
     	Codegen.generate("sub", "$sp", "$sp", localsCount*4);
     	
     	// back up registers, and create RegisterPool
+    	if(DEBUG){Codegen.genText("#660 back up registers, and create RegisterPool");}
     	ASTnode.pool = new RegPool();
     	pool.saveAll();
     	
     	/**************** Function Body **************/
     	
     	// Generate code for function body
+    	if(DEBUG){Codegen.genText("#667 Generate code for function body");}
     	myBody.codeGen();
     	
     	//Grab result from top of stack, put it into $v0
+    	if(DEBUG){Codegen.genText("#671 before return Grab result from top of stack, put it into $v0");}
     	if(!myType.type(VarDeclNode.NOT_ARRAY).isVoidType()){
     		Codegen.genPop("$v0");
     	}
     	
     	/**************** Function Exit **************/
     	
-    	
+
+    	if(DEBUG){Codegen.genText("#679 This label is for function's return statement to jump to");}
     	Codegen.genLabel(lastSeenFnExit);
     	// FUNCTION EXIT !!!!!!
+    	if(DEBUG){Codegen.genText("#681 function exit");}
     	// load return address
+    	if(DEBUG){Codegen.genText("#683 load return address");}
     	Codegen.generateIndexed("lw","$ra","$fp",-4 * paramsCount);
     	// save control link
+    	if(DEBUG){Codegen.genText("#686 save control link");}
     	Codegen.generate("move", "$t0", "$fp");
     	// restore FP
+    	if(DEBUG){Codegen.genText("#689 restore FP");}
     	Codegen.generateIndexed("lw", "$fp", "$fp",((-4*paramsCount) - 4));
     	// restore SP
+    	if(DEBUG){Codegen.genText("#692 restore SP");}
     	Codegen.generate("move","$sp", "$t0");
+    	// restore all saved registers
+    	if(DEBUG){Codegen.genText("#697 restore all saved Registers");}
+    	pool.restoreAll();
     	//return
+    	if(DEBUG){Codegen.genText("#695 function return");}
     	if(myId.name().equals("main")){
     		Codegen.generate("li","$v0",10);
     		Codegen.genText("syscall");
@@ -675,7 +705,7 @@ class FnDeclNode extends DeclNode {
     	else{
     		Codegen.generate("jr", "$ra");
     	}
-
+    	if(DEBUG){Codegen.genText("# </FnDeclNode>\n");}
     }
     
 
@@ -843,7 +873,69 @@ class ReadStmtNode extends StmtNode {
     }
     
     public void codeGen() {
-    	// TODO
+    	if(DEBUG){Codegen.genText("# <ReadStmt>");}
+    	String reg0 = pool.next();
+    	
+    	try{
+    		IdNode currId = ((IdNode)myExp);
+    		
+    		
+    		// Step 1: get type, then read the appropriate type into $v0
+    		if(currId.sym().type().isIntType() || currId.sym().type().isBoolType()){
+    			if(DEBUG){Codegen.genText("# If we are reading an int or bool");}
+    			Codegen.generate("li", "$v0", 5);
+    	    	Codegen.genText("syscall");
+    		}
+    		
+    		if(currId.sym().type().isStringType()){
+    			if(DEBUG){Codegen.genText("# If we are reading a string");}
+    			Codegen.generate("li", "$v0", 8);
+    			Codegen.generate("add","$a0","$sp","0");
+    			Codegen.generate("li","$a1","1024");
+    			Codegen.genText("syscall");
+    			
+    			if(DEBUG){Codegen.genText("# Update $SP after pushing the string onto stack");}
+    			//First back up current $sp as address of the string into REG0.
+    			pool.next();
+    			Codegen.generate("addi", reg0, "$sp", 0);
+    			
+    			//Then keep moving $sp until it pass a newline character
+    			String reg1 = pool.next();
+    			String moreChar = Codegen.nextLabel();
+    			Codegen.genLabel(moreChar);
+    			Codegen.generate("subu", "$sp", "$sp", 1);
+    			Codegen.generateIndexed("lbu",reg1,"$sp",0);
+    			//Check if the newly read char is a NULL
+    			Codegen.generate("bne",reg1,"$0",moreChar);
+
+    			//Jump here if its NULL
+    			//Shift $sp one more time before we return
+    			Codegen.generate("subu", "$sp", "$sp", 1);
+    			Codegen.generate(".align", "2");
+    			//Now we have a NULL terminated string starting at location reg0
+    		}
+    		
+    		// Step 2: load address of variable onto stack
+    		if(DEBUG){Codegen.genText("# Load the address of the variable we store this to");}
+    		currId.codeGen();
+    		
+    	} catch (ClassCastException e){
+    		// do nothing, should only be and IdNode
+    	}
+    
+    	// Step 3: Pop address of IdNode into reg0
+//    	reg0 = pool.next();
+//    	Codegen.genPop(reg0);
+    	
+    	// Step 4: Copy input into reg0
+    	Codegen.generate("sw","$v0",reg0,0);
+    	
+    	// Step 5: Push onto stack
+    	Codegen.genPush(reg0);
+    	
+    	pool.release(reg0);
+    	
+    	if(DEBUG){Codegen.genText("# </ReadStmt>\n");}
     }
     
     // 1 kid (actually can only be an IdNode or an ArrayExpNode)
@@ -880,7 +972,30 @@ class WriteStmtNode extends StmtNode {
     }
     
     public void codeGen() {
-    	// TODO
+    	try{
+    		IdNode currId = ((IdNode)myExp);
+    	
+    		if(currId.sym().type().isIntType()){
+    			// int write code
+    		}
+    		else if(currId.sym().type().isStringType()){
+    			// string write code
+    		}
+    	} catch (ClassCastException e){
+    		
+    	}
+    		
+
+    	
+    	
+    	
+    	
+    	
+    	
+    	
+    	
+    	
+    	
     }
 
     // 1 kid
@@ -922,12 +1037,13 @@ class AssignStmtNode extends StmtNode {
     }
     
     public void codeGen(){
-    	if(DEBUG){Codegen.genText("# Entering assign");}
-    	
+    	if(DEBUG){Codegen.genText("# <Assignment>");}
     	// Right hand side
+    	if(DEBUG){Codegen.genText("# Evaluate RHS of assign");}
     	myExp.codeGen();
     	
     	// Left hand side
+    	if(DEBUG){Codegen.genText("# Evaluate LHS of assign");}
     	try{
     		((IdNode)myLhs).codeGenByRef();
     	}catch(ClassCastException e){
@@ -938,17 +1054,19 @@ class AssignStmtNode extends StmtNode {
     	String reg0 = pool.next();
     	String reg1 = pool.next();
     	
+    	if(DEBUG){Codegen.genText("# Pop the two operand for assign");}
     	Codegen.genPop(reg0);// This is the address
     	Codegen.genPop(reg1);// This is the operand
     	
     	// Store the operand into target address
-    	Codegen.generate("sw", reg1, reg0, 0);
+    	if(DEBUG){Codegen.genText("# Save operand to the address");}
+    	Codegen.generateIndexed("sw", reg1, reg0, 0);
     	Codegen.genPush(reg1);
     	
     	pool.release(reg0);
     	pool.release(reg1);
     	
-    	if(DEBUG){Codegen.genText("# Leaving assign");}
+    	if(DEBUG){Codegen.genText("# </Assignment>\n");}
     }
 
     // 2 kids
@@ -1003,20 +1121,25 @@ class IfStmtNode extends StmtNode {
     }
     
     public void codeGen(){
+    	if(DEBUG){Codegen.genText("# <IfStmtNode>");}
     	String falseLabel = Codegen.nextLabel();
     	
     	// Step 1: evaluate the condition
+    	if(DEBUG){Codegen.genText("# evaluate the conditon");}
     	myExp.codeGen();
     	String reg0 = pool.next();
     	Codegen.generate("beqz", reg0, falseLabel);
+    	if(DEBUG){Codegen.genText("# THEN portion");}
     	// Step 2: generate for TRUE body code
     	myDeclList.codeGen();
     	myStmtList.codeGen();	
     	
     	// Step 3: place falseLabel
+    	if(DEBUG){Codegen.genText("# ELSE portion");}
     	Codegen.genLabel(falseLabel);
     	
     	pool.release(reg0);
+    	if(DEBUG){Codegen.genText("# </IfStmtNode>");}
     	
     }
 
@@ -1330,6 +1453,7 @@ class IntLitNode extends ExpNode {
     }
     
     public void codeGen(){
+    	if(DEBUG){Codegen.genText("# <IntLiteral>");}
     	// Step 1: grab register
     	String reg0 = pool.next();
     	
@@ -1341,6 +1465,7 @@ class IntLitNode extends ExpNode {
     	
     	// Step 4: Release register
     	pool.release(reg0);
+    	if(DEBUG){Codegen.genText("# </IntLiteral>\n");}
     }
 
     private int myLineNum;
@@ -1548,29 +1673,40 @@ class IdNode extends ExpNode {
     }
     
     public void codeGenByVal(){
-    	
+    	if(DEBUG){Codegen.genText("# <IdNodeByVal>");}
+    	if(DEBUG){Codegen.genText("# Trying to retrieve variable:" + myStrVal);}
     	// If it's a global variable
     	if(currLexLv > mySym.scopeLv){
+    		if(DEBUG){Codegen.genText("# Variable:" + myStrVal + " we want to access is global.");}
     		String reg0 = pool.next();
     		//Now we have the address pointing to the variable.
+    		if(DEBUG){Codegen.genText("# load address for the label:_" + myStrVal);}
     		Codegen.generate("la","reg0","_" + myStrVal);
     		//Grab its value.
+    		if(DEBUG){Codegen.genText("# Get Value from that address");}
     		Codegen.generateIndexed("lw", reg0, reg0, 0);
     		Codegen.genPush(reg0);
     		pool.release(reg0);	
     	}
+    	else{
+    		if(DEBUG){Codegen.genText("# Variable:" + myStrVal + " we want to access is local.");}
+    	}
     	
     	// If it's in current scope
     	String reg0 = pool.next();
+    	if(DEBUG){Codegen.genText("# get address for that variable");}
     	Codegen.generate("add",reg0,"$fp",mySym.getOffset());
+    	if(DEBUG){Codegen.genText("# Load variable value from that address");}
     	Codegen.generateIndexed("lw", reg0, reg0, 0);
     	Codegen.genPush(reg0);
     	pool.release(reg0);
     	
-    	
+    	if(DEBUG){Codegen.genText("# DONE with retrieving variable:" + myStrVal);}
+    	if(DEBUG){Codegen.genText("# </IdNodeByVal>\n");}
     }
     
     public void codeGenByRef(){
+    	if(DEBUG){Codegen.genText("# <IdNodeByRef>");}
     	
     	// If it's a global variable
     	if(currLexLv > mySym.scopeLv){
@@ -1585,10 +1721,26 @@ class IdNode extends ExpNode {
     	Codegen.generate("add",reg0,"$fp",mySym.getOffset());
     	Codegen.genPush(reg0);
     	pool.release(reg0);
-
+    	if(DEBUG){Codegen.genText("# </IdNOdeByRef>\n");}
     }
     
+    public void codeGenForFunction(){
+    	if(DEBUG){Codegen.genText("# <IdNodeForFunctionCall>");}
+    	// Make sure its a function call
+    	if(!FnSym.class.isInstance(mySym)){
+    		System.out.println("ast.java#1598:Fatal Error.");
+    		System.exit(-1);
+    	}
+    	
+    	// Call the function. (Params has been pushed already previously)
+    	if(DEBUG){Codegen.genText("#Jump to function:" + myStrVal + " from IdNode");}
+    	Codegen.generate("jal", "_" + myStrVal);
+    	if(DEBUG){Codegen.genText("# </IdNOdeForFunctionCall>\n");}
+    }
     
+    public void codeGen(){
+    	codeGenByVal();
+    }
 
     private int myLineNum;
     private int myCharNum;
@@ -1719,7 +1871,9 @@ class CallExpNode extends ExpNode {
     }
     
     public void codeGen(){
-    	// TODO
+    	myExpList.codeGen();
+    	if(true){Codegen.genText("#1728#CallExpNode, check if function is called correctly");}
+    	myId.codeGen();
     }
 
     // 2 kids
@@ -1981,6 +2135,7 @@ class PlusNode extends ArithmeticExpNode {
     }
     
     public void codeGen() {
+    	if(DEBUG){Codegen.genText("# <PlusNode>");}
         // step 1: evaluate both operands
         myExp1.codeGen();
         myExp2.codeGen();
@@ -2002,6 +2157,8 @@ class PlusNode extends ArithmeticExpNode {
         // step 5: release registers
         pool.release(reg0);
         pool.release(reg1);
+        
+        if(DEBUG){Codegen.genText("# </PlusNode>\n");}
     }
     
     
@@ -2021,6 +2178,7 @@ class MinusNode extends ArithmeticExpNode {
     }
     
     public void codeGen() {
+    	if(DEBUG){Codegen.genText("# <MinusNode>");}
         // step 1: evaluate both operands
         myExp1.codeGen();
         myExp2.codeGen();
@@ -2042,6 +2200,7 @@ class MinusNode extends ArithmeticExpNode {
         // step 5: release registers
         pool.release(reg0);
         pool.release(reg1);
+        if(DEBUG){Codegen.genText("# </MinusNode>\n");}
     }
 }
 
@@ -2059,6 +2218,7 @@ class TimesNode extends ArithmeticExpNode {
     }
     
     public void codeGen() {
+    	if(DEBUG){Codegen.genText("# <TimesNode>");}
         // step 1: evaluate both operands
         myExp1.codeGen();
         myExp2.codeGen();
@@ -2080,6 +2240,7 @@ class TimesNode extends ArithmeticExpNode {
         // step 5: release registers
         pool.release(reg0);
         pool.release(reg1);
+        if(DEBUG){Codegen.genText("# </TimesNode>\n");}
     }
 }
 
@@ -2097,6 +2258,7 @@ class DivideNode extends ArithmeticExpNode {
     }
     
     public void codeGen() {
+    	if(DEBUG){Codegen.genText("# <DivideNode>");}
         // step 1: evaluate both operands
         myExp1.codeGen();
         myExp2.codeGen();
@@ -2118,6 +2280,7 @@ class DivideNode extends ArithmeticExpNode {
         // step 5: release registers
         pool.release(reg0);
         pool.release(reg1);
+        if(DEBUG){Codegen.genText("# </DivideNode>\n");}
     }
     
 }
@@ -2140,6 +2303,7 @@ class AndNode extends LogicalExpNode {
     }
     
     public void codeGen() {
+    	if(DEBUG){Codegen.genText("# <AndNode>");}
         // step 1: evaluate both operands
         myExp1.codeGen();
         myExp2.codeGen();
@@ -2161,6 +2325,7 @@ class AndNode extends LogicalExpNode {
         // step 5: release registers 
         pool.release(reg0);
         pool.release(reg1);
+        if(DEBUG){Codegen.genText("# </AndNode>\n");}
     }
     
 }
@@ -2343,6 +2508,7 @@ class GreaterNode extends RelationalExpNode {
     }
     
     public void codeGen(){
+    	if(DEBUG){Codegen.genText("# <GreaterNode>");}
     	String elseLabel = Codegen.nextLabel();
     	
     	myExp2.codeGen();
@@ -2351,21 +2517,24 @@ class GreaterNode extends RelationalExpNode {
     	String reg0 = pool.next();
     	String reg1 = pool.next();
     	String reg2 = pool.next();
-    	
+    	if(DEBUG){Codegen.genText("# Default is false");}
     	Codegen.generate("li", reg0, 0);
     	Codegen.genPop(reg1);
     	Codegen.genPop(reg2);
     	
     	
     	Codegen.generate("ble",reg1,reg2,elseLabel);
+    	if(DEBUG){Codegen.genText("# Increment to turn false to true if TRUE");}
     	Codegen.generate("addi",reg0,1);
-    	Codegen.genLabel(elseLabel);
     	
+    	if(DEBUG){Codegen.genText("# This label is for FALSE to jump to");}
+    	Codegen.genLabel(elseLabel);
     	Codegen.genPush(reg0);
     	
     	pool.release(reg0);
     	pool.release(reg1);
     	pool.release(reg2);
+    	if(DEBUG){Codegen.genText("# </GreaterNode>\n");}
     }
 }
 

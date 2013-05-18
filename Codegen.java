@@ -47,6 +47,21 @@ public class Codegen {
     // for generating labels
     private static int currLabel = 0;
 
+    
+    
+    public static void initialize(String outFileName){
+        try {
+            p = new PrintWriter(outFileName);
+        } catch (FileNotFoundException ex) {
+            System.err.println("File " + outFileName +
+                               " could not be opened for writing.");
+            System.exit(-1);
+        }
+    }
+    
+    public static void writeFile(){
+    	p.close();
+    }
 
     // **********************************************************************
     // **********************************************************************

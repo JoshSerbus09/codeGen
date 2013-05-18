@@ -108,7 +108,15 @@ public class P6 {
 	}
 
         outFile.close();
-
+        
+        
+        
+    // Now start code generation
+    	 System.out.println("Beginning Code generation.");
+    	 Codegen.initialize("spim_" + args[1]);
+    	 ((ProgramNode)root.value).codeGen();
+    	 Codegen.writeFile();
+    	 System.out.println("Code generation complete. Output file: spim_" + args[1]);
         return;
     }
 }
