@@ -60,4 +60,8 @@ public class SymbolTable {
 		}
 		System.out.println();
 	}
+	
+	public int size(){
+		return list.size();
+	}
 }

@@ -8,6 +8,10 @@ public class RegPool {
 	
 	ArrayList<String> pool = new ArrayList<String>();
 
+	public int savedRegCount(){
+		return REGS.length;
+	}
+	
 	public RegPool(){
 	}
 	

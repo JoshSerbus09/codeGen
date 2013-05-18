@@ -8,6 +8,7 @@ public class Sym {
     private static int base = 0;
     public Type type;
     public String mark;
+    public int scopeLv = -1;
 
     public static int getBase(){
 	base++;
@@ -18,9 +19,10 @@ public class Sym {
     	
     }
     
-    public Sym(Type type) {
+    public Sym(Type type, int level) {
         this.type = type;
-	mark = "SYM[" + getBase() + "]";
+        mark = "SYM[" + getBase() + "]";
+        this.scopeLv = level;
     }
 
     public Type type() {
@@ -29,6 +31,10 @@ public class Sym {
 
     public String toString() {
         return type.toString();
+    }
+    
+    public int getLevel(){
+    	return scopeLv;
     }
 }
 
@@ -44,8 +50,8 @@ class FnSym extends Sym {
     private List<Type> paramTypes; 
     private int localSize;
 
-    public FnSym(Type type, int numparams, int lSize) {
-        super(new FnType());
+    public FnSym(Type type, int numparams, int lSize, int level) {
+        super(new FnType(), level);
         returnType = type;
         numParams = numparams;
        	localSize = lSize;

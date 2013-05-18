@@ -104,6 +104,7 @@ abstract class ASTnode {
     abstract public void unparse(PrintWriter p, int indent);
     public static boolean foundMain = false;
     public static RegPool pool = null;
+    public static int currLexLv = 0;
     
     // this method can be used by the unparse methods to do indenting
     protected void doIndent(PrintWriter p, int indent) {
@@ -271,6 +272,10 @@ class FnBodyNode extends ASTnode {
     public int numLocals(){
     	return myDeclList.count();
     }
+    
+    public void codeGen(){
+    	myStmtList.codeGen();
+    }
 
     // 2 kids
     private DeclListNode myDeclList;
@@ -321,6 +326,12 @@ class StmtListNode extends ASTnode {
         }
     }
 
+    public void codeGen(){
+    	for(StmtNode stmt : myStmts){
+    		stmt.codeGen();
+    	}
+    }
+    
     // list of kids (StmtNodes)
     private List<StmtNode> myStmts;
 }
@@ -436,7 +447,7 @@ class VarDeclNode extends DeclNode {
 
         if (! badDecl) {
             try {
-                Sym sym = new Sym(myType.type(mySize));
+                Sym sym = new Sym(myType.type(mySize), S.size());
                 S.insert(name, sym);
                 myId.link(sym);
             } catch (DuplicateException ex) {
@@ -513,8 +524,9 @@ class FnDeclNode extends DeclNode {
 
         else {
             try {
+            	// create new symbol containing name, numParams, numLocalVariables, current nesting level 
                 sym = new FnSym(myType.type(VarDeclNode.NOT_ARRAY),
-                                myFormalsList.length(), lSize);
+                                myFormalsList.length(), lSize, S.size());
                 S.insert(name, sym);
                 myId.link(sym);
 
@@ -560,6 +572,74 @@ class FnDeclNode extends DeclNode {
         doIndent(p, indent);
         p.println("}");
     }
+    
+    
+    public void codeGen(){
+    	int paramsCount = ((FnSym)myId.sym()).numparams();
+    	int localsCount = myBody.numLocals();
+    	
+    	// Print ".text"
+    	Codegen.genText(".text");
+    	
+    	// Print labels
+    	if(myId.name().equals("main")){
+    		Codegen.genText(".globl main");
+    		Codegen.genLabel("main");
+    		Codegen.genLabel("__start");
+    	}
+    	else{
+    		Codegen.genLabel("_" + myId.name());
+    	}
+    	
+    	// push return address
+    	Codegen.genPush("$ra");
+    	
+    	// push access link
+    	//TODO:
+    	System.out.println("ast.java#46465 : finish access link");
+    	System.exit(-1);
+    	
+    	// back up the old $fp into control link
+    	Codegen.genPush("$fp");
+    	
+    	// calculate thew new $fp
+    	Codegen.generate("addu", "$fp", "$sp", 8 + paramsCount*4);
+    	
+    	// push space for locals
+    	Codegen.generate("sub", "$sp", "$sp", localsCount*4);
+    	
+    	// back up registers, and create RegisterPool
+    	ASTnode.pool = new RegPool();
+    	pool.saveAll();
+    	
+    	// Generate code for function body
+    	myBody.codeGen();
+    	
+    	//Grab result from top of stack, put it into $v0
+    	if(!myType.type(VarDeclNode.NOT_ARRAY).isVoidType()){
+    		Codegen.genPop("$v0");
+    	}
+    	
+    	// FUNCTION EXIT !!!!!!
+    	// load return address
+    	Codegen.generateIndexed("lw","$ra","$fp",-4 * paramsCount);
+    	// save control link
+    	Codegen.generate("move", "$t0", "$fp");
+    	// restore FP
+    	Codegen.generateIndexed("lw", "$fp", "$fp",((-4*paramsCount) - 4));
+    	// restore SP
+    	Codegen.generate("move","$sp", "$t0");
+    	//return
+    	if(myId.name().equals("main")){
+    		Codegen.generate("li","$v0",10);
+    		Codegen.genText("syscall");
+    	}
+    	else{
+    		Codegen.generate("jr", "$ra");
+    	}
+
+    }
+    
 
     // 4 kids
     private TypeNode myType;
@@ -601,7 +681,7 @@ class FormalDeclNode extends DeclNode {
 
         if (! badDecl) {
             try {
-                sym = new Sym(myType.type(VarDeclNode.NOT_ARRAY));
+                sym = new Sym(myType.type(VarDeclNode.NOT_ARRAY), S.size());
                 S.insert(name, sym);
                 myId.link(sym);
             } catch (DuplicateException ex) {
@@ -1127,6 +1207,20 @@ class StringLitNode extends ExpNode {
     public int charnum() {
         return myCharNum;
     }
+    
+    public void codeGen(){
+    	// Step 1: grab register
+    	String reg0 = pool.next();
+    	
+    	// Step 2: load value into register
+    	
+    	
+    	// Step 3: Push onto stack
+    	
+    	
+    	// Step 4: Release register
+    	pool.release(reg0);
+    }
 
     private int myLineNum;
     private int myCharNum;
@@ -1157,6 +1251,20 @@ class TrueNode extends ExpNode {
     public int charnum() {
         return myCharNum;
     }
+    
+    public void codeGen(){
+    	// Step 1: grab register
+    	String reg0 = pool.next();
+    	
+    	// Step 2: load value into register
+    	Codegen.generate("li", reg0, 1);
+    	
+    	// Step 3: Push onto stack
+    	Codegen.genPush(reg0);
+    	
+    	// Step 4: Release register
+    	pool.release(reg0);
+    }
 
     private int myLineNum;
     private int myCharNum;
@@ -1185,6 +1293,20 @@ class FalseNode extends ExpNode {
     /** charnum **/
     public int charnum() {
         return myCharNum;
+    }
+    
+    public void codeGen(){
+    	// Step 1: grab register
+    	String reg0 = pool.next();
+    	
+    	// Step 2: load value into register
+    	Codegen.generate("li", reg0, 0);
+    	
+    	// Step 3: Push onto stack
+    	Codegen.genPush(reg0);
+    	
+    	// Step 4: Release register
+    	pool.release(reg0);
     }
 
     private int myLineNum;
@@ -1254,6 +1376,8 @@ class IdNode extends ExpNode {
     public int charnum() {
         return myCharNum;
     }
+    
+    
 
     private int myLineNum;
     private int myCharNum;
@@ -1328,7 +1452,7 @@ class CallExpNode extends ExpNode {
      *
      * process name of called fn and all actuals
      **/
-    public void processNames(SymbolTable S) {
+    public void processNames(SybusmbolTable S) {
         myId.processNames(S);
         myExpList.processNames(S);
     }

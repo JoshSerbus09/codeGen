@@ -203,6 +203,11 @@ public class Codegen {
         p.println();
     }
 
+    public static void genText(String str){
+    	p.print(str);
+    	p.println();
+    }
+    
     public static void generateLabeled(String label, String opcode,
                                        String comment) {
         generateLabeled(label, opcode, comment, "");
@@ -216,6 +221,7 @@ public class Codegen {
         generateIndexed("sw", s, SP, 0, "PUSH");
         generate("subu", SP, SP, 4);
     }
+
 
     // **********************************************************************
     // genPop
