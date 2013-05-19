@@ -191,18 +191,42 @@ __start:
 # </Assignment>
 
 # <WriteStmt>
-# Write int
+# <ArrayExpNode> (byVal)
+# <ArrayExpNode> (byRef)
+# <IntLiteral>
+	li    $t0, 0
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# </IntLiteral>
+
 # <IdNodeByVal>
-# Trying to retrieve variable:b
-# Variable:b we want to access is local.
+# Trying to retrieve variable:a
+# Variable:a we want to access is local.
 # get address for that variable
-	add   $t0, $fp, -12
+	add   $t0, $fp, -8
 # Load variable value from that address
 	lw    $t0, 0($t0)
 	sw    $t0, 0($sp)	#PUSH
 	subu  $sp, $sp, 4
-# DONE with retrieving variable:b
+# DONE with retrieving variable:a
 # </IdNodeByVal>
+
+	lw    $t0, 4($sp)	#POP
+	addu  $sp, $sp, 4
+	lw    $t1, 4($sp)	#POP
+	addu  $sp, $sp, 4
+	mul   $t1, $t1, 4
+	sub   $t0, $t0, $t1
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# </ArrayExpNode> (byRef) 
+
+	lw    $t0, 4($sp)	#POP
+	addu  $sp, $sp, 4
+	lw    $t0, 0($t0)
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# <ArrayExpNode> (byVal) 
 
 	li    $v0, 1
 	lw    $a0, 4($sp)	#POP

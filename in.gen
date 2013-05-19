@@ -4,7 +4,7 @@ int main(){
 	a[0] = 1;
 	b = a[0] + a[0];
 
-	cout << b;
+	cout << a[0];
 	cout << 1;
 }
 

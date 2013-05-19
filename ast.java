@@ -1085,6 +1085,7 @@ class WriteStmtNode extends StmtNode {
 					Codegen.genPop("$a0");
 					Codegen.generate("syscall");
 				}
+				
 			}
 			else{
 				//MARK
@@ -1127,7 +1128,12 @@ class WriteStmtNode extends StmtNode {
 					Codegen.generate("syscall");
 				}
 				
-				
+				else if(ArrayExpNode.class.isInstance(myExp)) {
+					((ArrayExpNode)myExp).codeGen();
+					Codegen.generate("li","$v0", 1);
+					Codegen.genPop("$a0");
+					Codegen.generate("syscall");
+				}
 				
 				
 //				myExp.codeGen();

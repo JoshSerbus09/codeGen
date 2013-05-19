@@ -4,6 +4,6 @@ int main() {
   int b;
   a(int[1])[0] = 1;
   b(int) = (a(int[1])[0] + a(int[1])[0]);
-  cout << b(int);
+  cout << a(int[1])[0];
   cout << 1;
 }
