@@ -1,8 +1,15 @@
-int x;
+int foo(int a, int b, int c, int d){
+	cout << a;
+	cout << b;
+
+	return a + b;
+	
+}
 
 int main(){
-	x = 1;
-	cout << x;
+	cout << foo(3,7,5,8);
 }
+
+
 
 

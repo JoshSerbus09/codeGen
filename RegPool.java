@@ -42,6 +42,7 @@ public class RegPool {
 	public void release(String reg){
 		if(pool.contains(reg)){
 			System.out.println("Fatal Error:RegPool#4646: Register released multiple times.");
+			int a = 0/0;
 		}
 		
 		pool.add(0,reg);

@@ -174,8 +174,8 @@ class DeclListNode extends ASTnode {
 		}
 
 		for(int i = 0; i < myDecls.size(); i++){
-			try{
-				VarDeclNode node = (VarDeclNode)myDecls.get(i);
+			try{	
+				VarDeclNode node = (VarDeclNode)myDecls.get(i);			
 				node.setOffset(-4 * (lastSeenParamsCount + 2 + i ));
 
 			} catch (ClassCastException ce) {
@@ -247,6 +247,17 @@ class FormalsListNode extends ASTnode {
 		} catch (NoSuchElementException ex) {
 			System.err.println("unexpected NoSuchElementException in FormalsListNode.processNames");
 			System.exit(-1);
+		}
+		
+		try{
+			for(int i = 0; i < myFormals.size(); i++){
+				FormalDeclNode node = myFormals.get(i);
+				
+				node.setOffset(-4*i);
+			}
+			
+		} catch (Exception e){
+			
 		}
 		return L;
 	}
@@ -569,6 +580,8 @@ class FnDeclNode extends DeclNode {
 
 		// get number of local variables
 		int lSize = myBody.numLocals();
+		
+		lastSeenParamsCount = myFormalsList.length();
 
 		if (S.localLookup(name) != null) {
 			Errors.fatal(myId.linenum(), myId.charnum(),
@@ -792,6 +805,10 @@ class FormalDeclNode extends DeclNode {
 
 	public void codeGen(){
 		// do nothing
+	}
+	
+	public void setOffset(int offset){
+		myId.sym().offset = offset;
 	}
 
 	// 2 kids
@@ -1186,6 +1203,7 @@ class IfStmtNode extends StmtNode {
 		myExp.codeGen();
 		String reg0 = pool.next();
 		Codegen.generate("beqz", reg0, falseLabel);
+		pool.release(reg0);
 		if(DEBUG){Codegen.genText("# THEN portion");}
 		// Step 2: generate for TRUE body code
 		myDeclList.codeGen();
@@ -1195,7 +1213,7 @@ class IfStmtNode extends StmtNode {
 		if(DEBUG){Codegen.genText("# ELSE portion");}
 		Codegen.genLabel(falseLabel);
 
-		pool.release(reg0);
+		
 		if(DEBUG){Codegen.genText("# </IfStmtNode>");}
 
 	}
@@ -1282,6 +1300,7 @@ class IfElseStmtNode extends StmtNode {
 		// Step 1: evaluate the condition
 		myExp.codeGen();
 		String reg0 = pool.next();
+		Codegen.genPop(reg0);
 		Codegen.generate("beqz", reg0, falseLabel);
 		pool.release(reg0);
 
@@ -1292,7 +1311,6 @@ class IfElseStmtNode extends StmtNode {
 
 		// Step 3: Else portion
 		Codegen.genLabel(falseLabel);
-		pool.release(reg0);
 		myElseDeclList.codeGen();
 		myElseStmtList.codeGen();
 

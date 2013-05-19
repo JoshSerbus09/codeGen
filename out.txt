@@ -1,4 +1,12 @@
 
+int foo(int a, int b, int c, int d) {
+  cout << a(int);
+  cout << b(int);
+  cout << c(int);
+  cout << d(int);
+  return (a(int) + b(int));
+}
+
 int main() {
-  cout << 1;
+  cout << foo(int,int,int,int->int)(3, 7, 5, 8);
 }
