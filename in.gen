@@ -1,6 +1,11 @@
 int main(){
-	cout << "Hello World!";
+	int a[1];
+	int b;
+	a[0] = 1;
+	b = a[0] + a[0];
 
+	cout << b;
+	cout << 1;
 }
 
 

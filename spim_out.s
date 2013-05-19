@@ -13,7 +13,10 @@ __start:
 #652 calculate thew new $fp
 	addu  $fp, $sp, 8
 #656 push space for locals
-	sub   $sp, $sp, 0
+	sub   $sp, $sp, 8
+	sub   $t8, $fp, 8
+	sw    $sp, 0($t8)
+	sub   $sp, $sp, 4
 #660 back up registers, and create RegisterPool
 	sw    $t0, 0($sp)	#PUSH
 	subu  $sp, $sp, 4
@@ -32,16 +35,190 @@ __start:
 	sw    $t7, 0($sp)	#PUSH
 	subu  $sp, $sp, 4
 #667 Generate code for function body
-# <WriteStmt>
-# Write String
-	li    $v0, 4
-.data
-.L1:
-.asciiz "Hello World!"
-.text
-	la    $t0, .L1
+# <Assignment>
+# Evaluate RHS of assign
+# <IntLiteral>
+	li    $t0, 1
 	sw    $t0, 0($sp)	#PUSH
 	subu  $sp, $sp, 4
+# </IntLiteral>
+
+# Evaluate LHS of assign
+# <ArrayExpNode> (byRef)
+# <IntLiteral>
+	li    $t0, 0
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# </IntLiteral>
+
+# <IdNodeByVal>
+# Trying to retrieve variable:a
+# Variable:a we want to access is local.
+# get address for that variable
+	add   $t0, $fp, -8
+# Load variable value from that address
+	lw    $t0, 0($t0)
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# DONE with retrieving variable:a
+# </IdNodeByVal>
+
+	lw    $t0, 4($sp)	#POP
+	addu  $sp, $sp, 4
+	lw    $t1, 4($sp)	#POP
+	addu  $sp, $sp, 4
+	mul   $t1, $t1, 4
+	sub   $t0, $t0, $t1
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# </ArrayExpNode> (byRef) 
+
+# Pop the two operand for assign
+	lw    $t0, 4($sp)	#POP
+	addu  $sp, $sp, 4
+	lw    $t1, 4($sp)	#POP
+	addu  $sp, $sp, 4
+# Save operand to the address
+	sw    $t1, 0($t0)
+	sw    $t1, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# </Assignment>
+
+# <Assignment>
+# Evaluate RHS of assign
+# <PlusNode>
+# <ArrayExpNode> (byVal)
+# <ArrayExpNode> (byRef)
+# <IntLiteral>
+	li    $t0, 0
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# </IntLiteral>
+
+# <IdNodeByVal>
+# Trying to retrieve variable:a
+# Variable:a we want to access is local.
+# get address for that variable
+	add   $t0, $fp, -8
+# Load variable value from that address
+	lw    $t0, 0($t0)
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# DONE with retrieving variable:a
+# </IdNodeByVal>
+
+	lw    $t0, 4($sp)	#POP
+	addu  $sp, $sp, 4
+	lw    $t1, 4($sp)	#POP
+	addu  $sp, $sp, 4
+	mul   $t1, $t1, 4
+	sub   $t0, $t0, $t1
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# </ArrayExpNode> (byRef) 
+
+	lw    $t0, 4($sp)	#POP
+	addu  $sp, $sp, 4
+	lw    $t0, 0($t0)
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# <ArrayExpNode> (byVal) 
+
+# <ArrayExpNode> (byVal)
+# <ArrayExpNode> (byRef)
+# <IntLiteral>
+	li    $t0, 0
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# </IntLiteral>
+
+# <IdNodeByVal>
+# Trying to retrieve variable:a
+# Variable:a we want to access is local.
+# get address for that variable
+	add   $t0, $fp, -8
+# Load variable value from that address
+	lw    $t0, 0($t0)
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# DONE with retrieving variable:a
+# </IdNodeByVal>
+
+	lw    $t0, 4($sp)	#POP
+	addu  $sp, $sp, 4
+	lw    $t1, 4($sp)	#POP
+	addu  $sp, $sp, 4
+	mul   $t1, $t1, 4
+	sub   $t0, $t0, $t1
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# </ArrayExpNode> (byRef) 
+
+	lw    $t0, 4($sp)	#POP
+	addu  $sp, $sp, 4
+	lw    $t0, 0($t0)
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# <ArrayExpNode> (byVal) 
+
+	lw    $t0, 4($sp)	#POP
+	addu  $sp, $sp, 4
+	lw    $t1, 4($sp)	#POP
+	addu  $sp, $sp, 4
+	add   $t0, $t0, $t1
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# </PlusNode>
+
+# Evaluate LHS of assign
+# <IdNodeByRef>
+# CurrLexLv: 1
+# MySym.scopeLv: 1
+	add   $t0, $fp, -12
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# </IdNOdeByRef>
+
+# Pop the two operand for assign
+	lw    $t0, 4($sp)	#POP
+	addu  $sp, $sp, 4
+	lw    $t1, 4($sp)	#POP
+	addu  $sp, $sp, 4
+# Save operand to the address
+	sw    $t1, 0($t0)
+	sw    $t1, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# </Assignment>
+
+# <WriteStmt>
+# Write int
+# <IdNodeByVal>
+# Trying to retrieve variable:b
+# Variable:b we want to access is local.
+# get address for that variable
+	add   $t0, $fp, -12
+# Load variable value from that address
+	lw    $t0, 0($t0)
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# DONE with retrieving variable:b
+# </IdNodeByVal>
+
+	li    $v0, 1
+	lw    $a0, 4($sp)	#POP
+	addu  $sp, $sp, 4
+	syscall
+# </WriteStmt>
+
+# <WriteStmt>
+# Write int
+# <IntLiteral>
+	li    $t0, 1
+	sw    $t0, 0($sp)	#PUSH
+	subu  $sp, $sp, 4
+# </IntLiteral>
+
+	li    $v0, 1
 	lw    $a0, 4($sp)	#POP
 	addu  $sp, $sp, 4
 	syscall

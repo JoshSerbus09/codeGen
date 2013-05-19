@@ -5,14 +5,44 @@ import java.util.Collections;
 public class RegPool {
 	
 	private static final String[] REGS = {"$t0","$t1","$t2","$t3","$t4","$t5","$t6","$t7",};
-	
+	private static boolean staticPoolInitialized = false;
 	ArrayList<String> pool = new ArrayList<String>();
-
+	public static ArrayList<String> staticPool = new ArrayList<String>();
+	
+	
+	
 	public int savedRegCount(){
 		return REGS.length;
 	}
 	
 	public RegPool(){
+		if(!staticPoolInitialized){
+			staticPool.add("$t8");
+			staticPool.add("$t9");
+			staticPoolInitialized = true;
+		}
+	}
+	
+	public static String nextStatic(){
+		if(!hasNextStatic()){
+			System.out.println("RegisterPool fatal error.");
+			System.exit(-1);
+		}
+		return staticPool.get(0);
+	}
+	
+	public static void releaseStatic(String REG){
+		staticPool.add(REG);
+		Collections.sort(staticPool);
+	}
+	
+	public static boolean hasNextStatic(){
+		if(staticPool.size() <= 0){
+			return false;
+		}
+		else{
+			return true;
+		}
 	}
 	
 	public void saveAll(){

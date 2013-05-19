@@ -218,9 +218,15 @@ class DeclListNode extends ASTnode {
 	public void codeGen(){
 		for(DeclNode node : myDecls){
 			if(DEBUG){Codegen.genText("# This is one child in DeclList Node#220");}
+			
 			node.codeGen();
+	
 			if(DEBUG){Codegen.genText("# This is THE END of one child in DeclList Node#220");}
 		}
+	}
+	
+	public List<DeclNode> getDecls(){
+		return myDecls;
 	}
 
 	// list of kids (DeclNodes)
@@ -284,41 +290,6 @@ class FormalsListNode extends ASTnode {
 
 	// list of kids (FormalDeclNodes)
 	private List<FormalDeclNode> myFormals;
-}
-
-class FnBodyNode extends ASTnode {
-	public FnBodyNode(DeclListNode declList, StmtListNode stmtList) {
-		myDeclList = declList;
-		myStmtList = stmtList;
-	}
-
-	/** processNames **/
-	public void processNames(SymbolTable S) {
-		myDeclList.processNames(S);
-		myStmtList.processNames(S);
-	}
-
-	/** typeCheck **/
-	public void typeCheck(Type T) {
-		myStmtList.typeCheck(T);
-	}
-
-	public void unparse(PrintWriter p, int indent) {
-		if (myDeclList != null) myDeclList.unparse(p, indent+2);
-		if (myStmtList != null) myStmtList.unparse(p, indent+2);
-	}
-
-	public int numLocals(){
-		return myDeclList.count();
-	}
-
-	public void codeGen(){
-		myStmtList.codeGen();
-	}
-
-	// 2 kids
-	private DeclListNode myDeclList;
-	private StmtListNode myStmtList;
 }
 
 class StmtListNode extends ASTnode {
@@ -527,20 +498,23 @@ class VarDeclNode extends DeclNode {
 
 	public void codeGen(){
 		if(currLexLv == 0){
-
 			if(DEBUG){Codegen.genText("# <GlobalVariable>");}
 			Codegen.generate(".data");
 			Codegen.generate(".align 2");
 			Codegen.genLabel("_" + myId.name());
 			Codegen.generate(".space 4");
 			if(DEBUG){Codegen.genText("# </GlobalVariable>\n");}
-
 		}
+	
+	}
+	
+	public int getSize(){
+		return mySize;
 	}
 
 	// 3 kids
 	private TypeNode myType;
-	private IdNode myId;
+	public IdNode myId;
 	private int mySize;  // use value NOT_ARRAY if this is not an array type
 
 	public static int NOT_ARRAY = -1;
@@ -643,6 +617,7 @@ class FnDeclNode extends DeclNode {
 
 
 	public void codeGen(){
+		ASTnode.pool = new RegPool();
 		if(DEBUG){Codegen.genText("# <FnDeclNode>");}
 		int paramsCount = ((FnSym)myId.sym()).numparams();
 		int localsCount = myBody.numLocals();
@@ -681,10 +656,30 @@ class FnDeclNode extends DeclNode {
 		// push space for locals
 		if(DEBUG){Codegen.genText("#656 push space for locals");}
 		Codegen.generate("sub", "$sp", "$sp", localsCount*4);
-
+		
+		
+		// Reserve the space for array
+		DeclListNode list = myBody.getDeclList();
+		List<DeclNode> myDecls = list.getDecls();
+		for(int i = 0; i < list.count(); i++){
+			VarDeclNode node = ((VarDeclNode)myDecls.get(i));
+			
+			if(node.getSize() == -1){
+				// not an array
+			} else {
+				int sizeOfArray = node.getSize();
+				String REG0 = RegPool.nextStatic();
+				int refLoc = 8 + paramsCount*4 + i * 4;
+				Codegen.generate("sub",REG0,"$fp", refLoc);
+				Codegen.generateIndexed("sw", "$sp", REG0, 0);
+				RegPool.releaseStatic(REG0);
+				Codegen.generate("sub", "$sp","$sp", sizeOfArray*4);
+			}
+		}
+		
 		// back up registers, and create RegisterPool
 		if(DEBUG){Codegen.genText("#660 back up registers, and create RegisterPool");}
-		ASTnode.pool = new RegPool();
+		
 		pool.saveAll();
 
 		/**************** Function Body **************/
@@ -713,14 +708,16 @@ class FnDeclNode extends DeclNode {
 		if(DEBUG){Codegen.genText("#683 load return address");}
 		Codegen.generateIndexed("lw","$ra","$fp",-4 * paramsCount);
 		// save control link
+		String REG0 = pool.next();
 		if(DEBUG){Codegen.genText("#686 save control link");}
-		Codegen.generate("move", "$t0", "$fp");
+		Codegen.generate("move", REG0, "$fp");
 		// restore FP
 		if(DEBUG){Codegen.genText("#689 restore FP");}
 		Codegen.generateIndexed("lw", "$fp", "$fp",((-4*paramsCount) - 4));
 		// restore SP
 		if(DEBUG){Codegen.genText("#692 restore SP");}
-		Codegen.generate("move","$sp", "$t0");
+		Codegen.generate("move","$sp", REG0);
+		pool.release(REG0);
 		// restore all saved registers
 		if(DEBUG){Codegen.genText("#697 restore all saved Registers");}
 		pool.restoreAll();
@@ -746,6 +743,45 @@ class FnDeclNode extends DeclNode {
 	private IdNode myId;
 	private FormalsListNode myFormalsList;
 	private FnBodyNode myBody;
+}
+
+class FnBodyNode extends ASTnode {
+	public FnBodyNode(DeclListNode declList, StmtListNode stmtList) {
+		myDeclList = declList;
+		myStmtList = stmtList;
+	}
+
+	/** processNames **/
+	public void processNames(SymbolTable S) {
+		myDeclList.processNames(S);
+		myStmtList.processNames(S);
+	}
+
+	/** typeCheck **/
+	public void typeCheck(Type T) {
+		myStmtList.typeCheck(T);
+	}
+
+	public void unparse(PrintWriter p, int indent) {
+		if (myDeclList != null) myDeclList.unparse(p, indent+2);
+		if (myStmtList != null) myStmtList.unparse(p, indent+2);
+	}
+
+	public int numLocals(){
+		return myDeclList.count();
+	}
+	
+	public DeclListNode getDeclList(){
+		return myDeclList;
+	}
+
+	public void codeGen(){
+		myStmtList.codeGen();
+	}
+
+	// 2 kids
+	private DeclListNode myDeclList;
+	private StmtListNode myStmtList;
 }
 
 class FormalDeclNode extends DeclNode {
@@ -1157,7 +1193,12 @@ class AssignStmtNode extends StmtNode {
 		// Left hand side
 		if(DEBUG){Codegen.genText("# Evaluate LHS of assign");}
 		try{
-			((IdNode)myLhs).codeGenByRef();
+			if(IdNode.class.isInstance(myLhs)){
+				((IdNode)myLhs).codeGenByRef();
+			}
+			else if(ArrayExpNode.class.isInstance(myLhs)){
+				((ArrayExpNode)myLhs).codeGenByRef();
+			}
 		}catch(ClassCastException e){
 			System.out.println("ast.java#4196857:This shouldn't happen.");
 			System.exit(-1);
@@ -1916,8 +1957,35 @@ class ArrayExpNode extends ExpNode {
 		return myId.charnum();
 	}
 
+	public void codeGenByRef(){
+		if(DEBUG){Codegen.genText("# <ArrayExpNode> (byRef)");}
+		myExp.codeGen();
+		myId.codeGenByVal();
+		String REG0 = pool.next();//Base address of array
+		String REG1 = pool.next();// Index
+		Codegen.genPop(REG0);
+		Codegen.genPop(REG1);
+		Codegen.generate("mul",REG1, REG1, 4);
+		Codegen.generate("sub", REG0, REG0, REG1);
+		Codegen.genPush(REG0);
+		pool.release(REG0);
+		pool.release(REG1);
+		if(DEBUG){Codegen.genText("# </ArrayExpNode> (byRef) \n");}
+	}
+	
+	public void codeGenByVal(){
+		if(DEBUG){Codegen.genText("# <ArrayExpNode> (byVal)");}
+		codeGenByRef();
+		String REG0 = pool.next();//Base address of array
+		Codegen.genPop(REG0);
+		Codegen.generateIndexed("lw", REG0, REG0,0);
+		Codegen.genPush(REG0);
+		pool.release(REG0);
+		if(DEBUG){Codegen.genText("# <ArrayExpNode> (byVal) \n");}
+	}
+	
 	public void codeGen(){
-		//TODO
+		codeGenByVal();
 	}
 
 	// 2 kids
