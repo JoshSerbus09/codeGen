@@ -1049,17 +1049,55 @@ class WriteStmtNode extends StmtNode {
 					Codegen.genPop("$a0");
 					Codegen.generate("syscall");
 				}
-			} else {
+			}
+			else{
+				//MARK
+				
+				
+				if(IntLitNode.class.isInstance(myExp)){
+					if(DEBUG){Codegen.genText("# Write int");}
+					myExp.codeGen();
+					Codegen.generate("li","$v0", 1);
+					Codegen.genPop("$a0");
+					Codegen.generate("syscall");
+				}
+				else if(TrueNode.class.isInstance(myExp) || FalseNode.class.isInstance(myExp)){
+					if(DEBUG){Codegen.genText("# Write BOOL");}
+					myExp.codeGen();
+					String REG0 = pool.next();
+					Codegen.genPop(REG0);
 
-				myExp.codeGen();
-				Codegen.genPop("$a0");
-				Codegen.generate("li","$v0", 1);
-				Codegen.generate("syscall");
+					// Default value is 0
+					Codegen.generate("li", "$a0", 0);
+					String falseLabel = Codegen.nextLabel();
+					Codegen.generate("beqz",REG0,falseLabel);
+					Codegen.generate("addi","$a0","$a0", 1);
+
+					Codegen.genLabel(falseLabel);
+					pool.release(REG0);
+
+					//Print it.
+					Codegen.generate("li","$v0", 1);
+					Codegen.generate("syscall");
 
 
-
-
-
+					// string write code
+				}
+				else if(StringLitNode.class.isInstance(myExp)){
+					if(DEBUG){Codegen.genText("# Write String");}
+					Codegen.generate("li","$v0", 4);
+					myExp.codeGen();
+					Codegen.genPop("$a0");
+					Codegen.generate("syscall");
+				}
+				
+				
+				
+				
+//				myExp.codeGen();
+//				Codegen.genPop("$a0");
+//				Codegen.generate("li","$v0", 1);
+//				Codegen.generate("syscall");
 			}
 
 
@@ -1581,7 +1619,7 @@ class StringLitNode extends ExpNode {
 
 		Codegen.genText(".data");
 		Codegen.genLabel(label);
-		Codegen.genText(".asciiz \"" + myStrVal + "\"");
+		Codegen.genText(".asciiz " + myStrVal);
 
 		// Step 2: Push the address of the String onto the stack
 		Codegen.genText(".text");
@@ -1814,6 +1852,10 @@ class IdNode extends ExpNode {
 		// Call the function. (Params has been pushed already previously)
 		if(DEBUG){Codegen.genText("#Jump to function:" + myStrVal + " from IdNode");}
 		Codegen.generate("jal", "_" + myStrVal);
+		String REG0 = pool.next();
+		Codegen.generate("addi", REG0, "$v0", 0);
+		Codegen.genPush(REG0);
+		pool.release(REG0);
 		if(DEBUG){Codegen.genText("# </IdNOdeForFunctionCall>\n");}
 	}
 

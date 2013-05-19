@@ -1,15 +1,6 @@
-int foo(int a, int b, int c, int d){
-	cout << a;
-	cout << b;
-	cout << c;
-	cout << d;
-
-	return a + b;
-	
-}
-
 int main(){
-	cout << foo(3,7,5,8);
+	cout << "Hello World!";
+
 }
 
 
