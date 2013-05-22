@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                   ALL STUDENTS COMPLETE THESE SECTIONS
-// Title:            P5
-// Files:            P5.java 
+// Title:            P6
+// Files:            P6.java 
 // Semester:         CS536 Spring 2013
 //
 // Author:           Josh Serbus

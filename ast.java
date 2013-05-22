@@ -1,3 +1,21 @@
+///////////////////////////////////////////////////////////////////////////////
+//                   ALL STUDENTS COMPLETE THESE SECTIONS
+// Title:            ast.java
+// MainFile:         P6.java 
+// Semester:         CS536 Spring 2013
+//
+// Author:           Josh Serbus
+// Email:            serbus@wisc.edu
+// CS Login:         serbus
+// Lecturer's Name:  Hasti
+//
+//                   PAIR PROGRAMMERS COMPLETE THIS SECTION
+// Pair Partner:     Jiyao Yang
+// Email:            jyang73@wisc.edu
+// CS Login:         jiyao
+// Lecturer's Name:  Hasti
+//////////////////////////// 80 columns wide //////////////////////////////////
+
 import java.io.*;
 import java.util.*;
 
@@ -100,7 +118,7 @@ import java.util.*;
 // **********************************************************************
 
 abstract class ASTnode {
-	public static final boolean DEBUG = true;
+	public static final boolean DEBUG = false;
 
 	// every subclass must provide an unparse operation
 	abstract public void unparse(PrintWriter p, int indent);
@@ -955,41 +973,16 @@ class ReadStmtNode extends StmtNode {
 			// Step 1: get type, then read the appropriate type into $v0
 			if(currId.sym().type().isIntType() || currId.sym().type().isBoolType()){
 				if(DEBUG){Codegen.genText("# If we are reading an int or bool");}
+				
+
+				
 				Codegen.generate("li", "$v0", 5);
 				Codegen.generate("syscall");
 			}
 
-			if(currId.sym().type().isStringType()){
-				if(DEBUG){Codegen.genText("# If we are reading a string");}
-				Codegen.generate("li", "$v0", 8);
-				Codegen.generate("add","$a0","$sp","0");
-				Codegen.generate("li","$a1","1024");
-				Codegen.generate("syscall");
-
-				if(DEBUG){Codegen.genText("# Update $SP after pushing the string onto stack");}
-				//First back up current $sp as address of the string into REG0.
-				pool.next();
-				Codegen.generate("addi", reg0, "$sp", 0);
-
-				//Then keep moving $sp until it pass a newline character
-				String reg1 = pool.next();
-				String moreChar = Codegen.nextLabel();
-				Codegen.genLabel(moreChar);
-				Codegen.generate("subu", "$sp", "$sp", 1);
-				Codegen.generateIndexed("lbu",reg1,"$sp",0);
-				//Check if the newly read char is a NULL
-				Codegen.generate("bne",reg1,"$0",moreChar);
-
-				//Jump here if its NULL
-				//Shift $sp one more time before we return
-				Codegen.generate("subu", "$sp", "$sp", 1);
-				Codegen.generate(".align", "2");
-				//Now we have a NULL terminated string starting at location reg0
-			}
-
 			// Step 2: load address of variable onto stack
 			if(DEBUG){Codegen.genText("# Load the address of the variable we store this to");}
-			currId.codeGen();
+			currId.codeGenByRef();
 
 		} catch (ClassCastException e){
 			// do nothing, should only be and IdNode
@@ -1000,10 +993,9 @@ class ReadStmtNode extends StmtNode {
 		//    	Codegen.genPop(reg0);
 
 		// Step 4: Copy input into reg0
-		Codegen.generate("sw","$v0",reg0,0);
-
-		// Step 5: Push onto stack
-		Codegen.genPush(reg0);
+		Codegen.genPop(reg0);
+		
+		Codegen.generateIndexed("sw","$v0",reg0,0);
 
 		pool.release(reg0);
 
@@ -1086,6 +1078,13 @@ class WriteStmtNode extends StmtNode {
 					Codegen.generate("syscall");
 				}
 				
+				else if(currId.sym().type().isFnType()) {
+					currId.codeGenByVal();
+					Codegen.genPop("$a0");
+					Codegen.generate("li", "$v0", 4);
+					Codegen.generate("syscall");
+				}
+				
 			}
 			else{
 				//MARK
@@ -1132,6 +1131,13 @@ class WriteStmtNode extends StmtNode {
 					((ArrayExpNode)myExp).codeGen();
 					Codegen.generate("li","$v0", 1);
 					Codegen.genPop("$a0");
+					Codegen.generate("syscall");
+				}
+				
+				else if(CallExpNode.class.isInstance(myExp)) {
+					((CallExpNode)myExp).codeGen();
+					Codegen.genPop("$a0");
+					Codegen.generate("li", "$v0", 4);
 					Codegen.generate("syscall");
 				}
 				

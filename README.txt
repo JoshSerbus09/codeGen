@@ -11,5 +11,7 @@ Login:		serbus
 Partner:	Jiyao Yang
 Login:		jiyao
 
+**Note**
+You can set a variable called DEBUG to true in ast.java if you want to output commented debug code in the assembly file that is generated as output.
 
 Have a good summer!

@@ -1,13 +1,29 @@
-int main(){
-	int a[1];
-	int b;
-	a[0] = 1;
-	b = a[0] + a[0];
-
-	cout << a[0];
-	cout << 1;
+int foo3(){
+	int a;
+	a = 1;
+	cout << a;
+	return a;
 }
 
+int foo2(){
+	int b;
+	b = foo3() + 1;
+	cout << b;
+	return b;
+}
 
+int foo1(){
+	int c;
+	c = foo2() + 2;
+	cout << c;
+	return c;
+}
+
+int main(){
+	int z;
+	cout<< 9;
+	//z = foo1();
+	cout << foo1();
+}
 
 

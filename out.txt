@@ -1,9 +1,27 @@
 
-int main() {
-  int a[1];
+int foo3() {
+  int a;
+  a(int) = 1;
+  cout << a(int);
+  return a(int);
+}
+
+int foo2() {
   int b;
-  a(int[1])[0] = 1;
-  b(int) = (a(int[1])[0] + a(int[1])[0]);
-  cout << a(int[1])[0];
-  cout << 1;
+  b(int) = (foo3(->int)() + 1);
+  cout << b(int);
+  return b(int);
+}
+
+int foo1() {
+  int c;
+  c(int) = (foo2(->int)() + 2);
+  cout << c(int);
+  return c(int);
+}
+
+int main() {
+  int z;
+  cout << 9;
+  cout << foo1(->int)();
 }
